@@ -8,11 +8,11 @@
 
 #define __restrict__
 
-//#define PARALLEL
-#define FILE0
+#define PARALLEL
+//#define FILE0
 #define OBLATE
 
-#define numberOfPeriods 1000
+#define numberOfPeriods 10000
 #define numberOfInitialConditions 1000
 
 #ifdef PARALLEL
