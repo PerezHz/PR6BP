@@ -66,14 +66,14 @@ void newInitialConditions(blitz2Djet &x, //x,px
     double f=pi*ta/180.;
     double w=pi*lp/180.;
 
-    double myMeanMotion = sqrt( G*(m(prind)+m(i))*(1.+Lambda/(a*a))/(a*a*a) );
+    double myMeanMotion = sqrt( G*(m(prind)+m(i))/(a*a*a) )*(1.+0.5*Lambda/(a*a)-0.125*Lambda*Lambda/(a*a*a*a)+2.*Lambda*e*e/(a*a));
     double myRadius = a*(1.-e*e)/(1.+e*cos(f));
 
     double x_0 = myRadius*cos(f);
     double y_0 = myRadius*sin(f);
 
-    double u_0 = -a*sin(f)/sqrt(1.-e*e);
-    double v_0 = a*(e+cos(f))/sqrt(1.-e*e);
+    double u_0 = -myMeanMotion*a*   sin(f) /sqrt(1.-e*e);
+    double v_0 =  myMeanMotion*a*(e+cos(f))/sqrt(1.-e*e);
 
     double nx0 = x_0*cos(w)-y_0*sin(w);
     double ny0 = x_0*sin(w)+y_0*cos(w);
@@ -85,12 +85,22 @@ void newInitialConditions(blitz2Djet &x, //x,px
     x(1,i)=nu0;
     y(1,i)=nv0;
 
+//    std::cout << "x0"<< i <<"=" << nx0 << std::endl;
+//    std::cout << "y0"<< i <<"=" << ny0 << std::endl;
+//    std::cout << "u0"<< i <<"=" << nu0 << std::endl;
+//    std::cout << "v0"<< i <<"=" << nv0 << std::endl;
+
     if (prind>0){
+        x(0,i)+=x(0,prind);
+        y(0,i)+=y(0,prind);
         x(1,i)+=x(1,prind);
         y(1,i)+=y(1,prind);
-        x(2,i)+=x(2,prind);
-        y(2,i)+=y(2,prind);
     }
+
+    if(i==index_rp) std::cout << "x0"<< i <<"=" << x(0,i) << " ";
+    //std::cout << "y0"<< i <<"=" << y(0,i) << std::endl;
+    //std::cout << "u0"<< i <<"=" << x(1,i) << std::endl;
+    //std::cout << "v0"<< i <<"=" << y(1,i) << std::endl;
 
 }
 
@@ -181,10 +191,10 @@ double Energy(int &N,
             
             double rij=sqrt(  ( x(0,i)-x(0,j) )*( x(0,i)-x(0,j) )+( y(0,i)-y(0,j) )*( y(0,i)-y(0,j) )  );
             
-            if (i==0 || j==0) {
+            if (i==index_sa || j==index_sa) {
                 ans=ans-G*m(j)*m(i)*(1.+Lambda/(3.*rij*rij))/rij;
             }
-            else if(i!=0 && j!=0) {
+            else if(i!=index_sa && j!=index_sa) {
                 ans=ans-G*m(j)*m(i)/rij;
             }
             else std::cout << "ERROR: Energy ERROR 1" << std::endl;
@@ -226,23 +236,25 @@ double radialDistance(blitz2Djet &x,
 
 double radialVelocityNumerator(blitz2Djet &x,
                      blitz2Djet &y,
-                     int i
+                     int i,
+                     int j
                      ){
 
-    return (x(0,i)-x(0,0))*(x(1,i)-x(1,0))+(y(0,i)-y(0,0))*(y(1,i)-y(1,0));
+    return (x(0,i)-x(0,j))*(x(1,i)-x(1,j))+(y(0,i)-y(0,j))*(y(1,i)-y(1,j));
 
 }//end, radialVelocityNumerator
 
 double radialDistanceDotDot(blitz2Djet &x,
                      blitz2Djet &y,
-                     int i
+                     int i,
+                     int j
                      ){
 
-    double term1= pow(x(1,i)-x(1,0),2.)+pow(y(1,i)-y(1,0),2.);
-    double term2= (x(0,i)-x(0,0))*(x(2,i)-x(2,0))+(y(0,i)-y(0,0))*(y(2,i)-y(2,0));
-    double term3= -pow(radialVelocityNumerator(x,y,i)/radialDistance(x,y,i,0),2.);
+    double term1= pow(x(1,i)-x(1,j),2.)+pow(y(1,i)-y(1,j),2.);
+    double term2= (x(0,i)-x(0,j))*(x(2,i)-x(2,j))+(y(0,i)-y(0,j))*(y(2,i)-y(2,j));
+    double term3= -pow(radialVelocityNumerator(x,y,i,j)/radialDistance(x,y,i,j),2.);
 
-    return (term1+2.*term2+term3)/radialDistance(x,y,i,0);
+    return (term1+2.*term2+term3)/radialDistance(x,y,i,j);
 
 }//end, radialDistanceDotDot
 
@@ -250,10 +262,11 @@ double unit2BP_hz(int &N,
                      blitz2Djet &x,
                      blitz2Djet &y,
                      blitz1Djet &m,
-                     int i
+                     int i,
+                     int j
                      ){
 
-    return (x(0,i)-x(0,0))*(y(1,i)-y(1,0))-(y(0,i)-y(0,0))*(x(1,i)-x(1,0));
+    return (x(0,i)-x(0,j))*(y(1,i)-y(1,j))-(y(0,i)-y(0,j))*(x(1,i)-x(1,j));
 
 }//end, unit2BP_hz, Murray pg. 24 Eq. 2.6; pg. 25 Eq. 2.8
 
@@ -261,14 +274,15 @@ double LRLx(int &N,
 			blitz2Djet &x,
 			blitz2Djet &y,
 			blitz1Djet &m,
-			int i
+            int i,
+            int j
 			){
 	
-	double relativeAngular=unit2BP_hz(N,x,y,m,i);
+    double relativeAngular=unit2BP_hz(N,x,y,m,i,j);
 	
-	double relativeDistance=sqrt(  pow((x(0,i)-x(0,0)),2.)  +  pow((y(0,i)-y(0,0)),2.)  );
+    double relativeDistance=sqrt(  pow((x(0,i)-x(0,j)),2.)  +  pow((y(0,i)-y(0,j)),2.)  );
 	
-	return +(y(1,i)-y(1,0))*relativeAngular/(G*(1.+m(i)))-(x(0,i)-x(0,0))/relativeDistance;
+    return +(y(1,i)-y(1,j))*relativeAngular/(G*(1.+m(i)))-(x(0,i)-x(0,j))/relativeDistance;
 	
 }//end, Laplace-Runge-Lenz vector, x component
 
@@ -276,14 +290,15 @@ double LRLy(int &N,
 			blitz2Djet &x,
 			blitz2Djet &y,
 			blitz1Djet &m,
-			int i
+            int i,
+            int j
 			){
 	
-	double relativeAngular=unit2BP_hz(N,x,y,m,i);
+    double relativeAngular=unit2BP_hz(N,x,y,m,i,j);
 	
-	double relativeDistance=sqrt(  pow((x(0,i)-x(0,0)),2.)  +  pow((y(0,i)-y(0,0)),2.)  );
+    double relativeDistance=sqrt(  pow((x(0,i)-x(0,j)),2.)  +  pow((y(0,i)-y(0,j)),2.)  );
 	
-	return -(x(1,i)-x(1,0))*relativeAngular/(G*(1.+m(i)))-(y(0,i)-y(0,0))/relativeDistance;
+    return -(x(1,i)-x(1,j))*relativeAngular/(G*(1.+m(i)))-(y(0,i)-y(0,j))/relativeDistance;
 	
 }//end, Laplace-Runge-Lenz vector, y component
 
@@ -291,12 +306,13 @@ double semiMajorAxis(int &N,
 					 blitz2Djet &x,
 					 blitz2Djet &y,
 					 blitz1Djet &m,
-					 int i
+                     int i,
+                     int j
 					 ){
 	
-	double relativeDistance=sqrt(  pow((x(0,i)-x(0,0)),2.)  +  pow((y(0,i)-y(0,0)),2.)  );
+    double relativeDistance=sqrt(  pow((x(0,i)-x(0,j)),2.)  +  pow((y(0,i)-y(0,j)),2.)  );
 	
-    double relativeSpeed   =pow((x(1,i)-x(1,0)),2.)  +  pow((y(1,i)-y(1,0)),2.);
+    double relativeSpeed   =pow((x(1,i)-x(1,j)),2.)  +  pow((y(1,i)-y(1,j)),2.);
 	
     return pow(  (2./relativeDistance)-(relativeSpeed)/(G*(1.+m(i)))  ,-1.);
 	
@@ -306,12 +322,13 @@ double eccentricity(int &N,
 					blitz2Djet &x,
 					blitz2Djet &y,
 					blitz1Djet &m,
-					int i
+                    int i,
+                    int j
 					){
 	
-	double current_sma=semiMajorAxis(N,x,y,m,i);
+    double current_sma=semiMajorAxis(N,x,y,m,i,j);
 	
-	double current_ams=unit2BP_hz(N,x,y,m,i); //angular momentum per unit mass
+    double current_ams=unit2BP_hz(N,x,y,m,i,j); //angular momentum per unit mass
 	current_ams=current_ams*current_ams; //square it!
 	
 	return sqrt(  1.-current_ams/(G*(1.+m(i))*current_sma)  );
@@ -322,16 +339,17 @@ double sin_f(int &N,
 			 blitz2Djet &x,
 			 blitz2Djet &y,
 			 blitz1Djet &m,
-			 int i
+             int i,
+             int j
 			 ){
 	
-	double current_sma=semiMajorAxis(N,x,y,m,i);
-	double current_ecc=eccentricity (N,x,y,m,i);
-	double current_uhz=unit2BP_hz   (N,x,y,m,i);
+    double current_sma=semiMajorAxis(N,x,y,m,i,j);
+    double current_ecc=eccentricity (N,x,y,m,i,j);
+    double current_uhz=unit2BP_hz   (N,x,y,m,i,j);
 	
-	double relativeDistance=sqrt(  pow((x(0,i)-x(0,0)),2.)  +  pow((y(0,i)-y(0,0)),2.)  );
+    double relativeDistance=sqrt(  pow((x(0,i)-x(0,j)),2.)  +  pow((y(0,i)-y(0,j)),2.)  );
 	
-	double radialSpeed=(x(0,i)-x(0,0))*(x(1,i)-x(1,0))+(y(0,i)-y(0,0))*(y(1,i)-y(1,0));
+    double radialSpeed=(x(0,i)-x(0,j))*(x(1,i)-x(1,j))+(y(0,i)-y(0,j))*(y(1,i)-y(1,j));
 	radialSpeed=radialSpeed/relativeDistance;
 	
 	return (  (current_sma*(1-current_ecc*current_ecc))/(current_uhz*current_ecc)  )*radialSpeed;
@@ -342,13 +360,14 @@ double cos_f(int &N,
 			 blitz2Djet &x,
 			 blitz2Djet &y,
 			 blitz1Djet &m,
-			 int i
+             int i,
+             int j
 			 ){
 	
-	double current_sma=semiMajorAxis(N,x,y,m,i);
-	double current_ecc=eccentricity (N,x,y,m,i);
+    double current_sma=semiMajorAxis(N,x,y,m,i,j);
+    double current_ecc=eccentricity (N,x,y,m,i,j);
 	
-	double relativeDistance=sqrt(  pow((x(0,i)-x(0,0)),2.)  +  pow((y(0,i)-y(0,0)),2.)  );
+    double relativeDistance=sqrt(  pow((x(0,i)-x(0,j)),2.)  +  pow((y(0,i)-y(0,j)),2.)  );
 	
 	return (1./current_ecc)*(  current_sma*(1.-current_ecc*current_ecc)/relativeDistance  -  1  );
 	
@@ -499,7 +518,7 @@ void TimeStepControl(int &n,
         };//end, if thisIsTrue == true :P
         
         //1st step size control method: safety factor
-        delta_t = fmin( rho_n , rho_nm1 )*exp(-2.)*exp(  ((-0.7)/( 1.0*(n-1) ))  );
+        delta_t = fmin( rho_n , rho_nm1 )*exp(-2.)*exp(  (safetyFactor/( 1.0*(n-1) ))  );
         
         //2nd step size control method: succesive series terms cannot increase!
         if (timeStepControlMethod == 2){
@@ -577,10 +596,10 @@ void TaylorSeriesExpansion(int &n,
         
     };//end, for j
     
-    xnew(0,0)=-m(1)*xnew(0,1)-m(2)*xnew(0,2)-m(3)*xnew(0,3)-m(4)*xnew(0,4);
-    ynew(0,0)=-m(1)*ynew(0,1)-m(2)*ynew(0,2)-m(3)*ynew(0,3)-m(4)*ynew(0,4);
-    xnew(1,0)=-m(1)*xnew(1,1)-m(2)*xnew(1,2)-m(3)*xnew(1,3)-m(4)*xnew(1,4);
-    ynew(1,0)=-m(1)*ynew(1,1)-m(2)*ynew(1,2)-m(3)*ynew(1,3)-m(4)*ynew(1,4);
+    xnew(0,0)=(-m(1)*xnew(0,1)-m(2)*xnew(0,2)-m(3)*xnew(0,3)-m(4)*xnew(0,4))/m(0);
+    ynew(0,0)=(-m(1)*ynew(0,1)-m(2)*ynew(0,2)-m(3)*ynew(0,3)-m(4)*ynew(0,4))/m(0);
+    xnew(1,0)=(-m(1)*xnew(1,1)-m(2)*xnew(1,2)-m(3)*xnew(1,3)-m(4)*xnew(1,4))/m(0);
+    ynew(1,0)=(-m(1)*ynew(1,1)-m(2)*ynew(1,2)-m(3)*ynew(1,3)-m(4)*ynew(1,4))/m(0);
 	
     //std::cout << "n=" << n << std::endl;
     //std::cout << "delta_t/tpr=" << delta_t/T_Pr << std::endl;
@@ -607,7 +626,8 @@ void TaylorMethod(int &n,
                   double &delta_t,
                   blitz2Djet &xnew,
                   blitz2Djet &ynew,
-                  double &t
+                  double &t,
+                  int maxperiods
                   ){
     
     OrderControl(n,N,x,y,thisIsTrue,infNorm,absoluteError,relativeError,timeStepControlMethod);
@@ -667,7 +687,7 @@ void TaylorMethod(int &n,
                 A(order,i,j)=ans;
                 
                 //(B;DX,DY when i==0);C -Jets calculation:
-                if(i==0){
+                if(i==index_sa || j==index_sa){
                     
                     dns=A(0,i,j);
                     
@@ -710,10 +730,8 @@ void TaylorMethod(int &n,
                     DX(order,i,j)= ans;
                     DY(order,i,j)= bns;
                     
-                };//end, if i==0 true
-                
-                //(B;DX,DY when i!=0)-Jets calculation:
-                if(i!=0){
+                }//end, if i==0 true
+                else if(i!=index_sa || j!=index_sa){ //(B;DX,DY when i!=0)-Jets calculation
                     
                     dns=A(0,i,j);
                     
@@ -748,20 +766,23 @@ void TaylorMethod(int &n,
         double factor=G/((order+2.)*(order+1.));
         int orderplustwo=order+2;
         
-        x(orderplustwo,4)=( DX(order,0,4)+m(1)*DX(order,1,4)+m(2)*DX(order,2,4)+m(3)*DX(order,3,4) )*factor;
-        y(orderplustwo,4)=( DY(order,0,4)+m(1)*DY(order,1,4)+m(2)*DY(order,2,4)+m(3)*DY(order,3,4) )*factor;
+        x(orderplustwo,5) = ( m(0)*DX(order,0,5)+m(1)*DX(order,1,5)+m(2)*DX(order,2,5)+m(3)*DX(order,3,5)+m(4)*DX(order,4,5) )*factor;
+        y(orderplustwo,5) = ( m(0)*DY(order,0,5)+m(1)*DY(order,1,5)+m(2)*DY(order,2,5)+m(3)*DY(order,3,5)+m(4)*DY(order,4,5) )*factor;
+
+        x(orderplustwo,4) = ( m(0)*DX(order,0,4)+m(1)*DX(order,1,4)+m(2)*DX(order,2,4)+m(3)*DX(order,3,4)                    )*factor;
+        y(orderplustwo,4) = ( m(0)*DY(order,0,4)+m(1)*DY(order,1,4)+m(2)*DY(order,2,4)+m(3)*DY(order,3,4)                    )*factor;
         
-        x(orderplustwo,3)=( DX(order,0,3)+m(1)*DX(order,1,3)+m(2)*DX(order,2,3)                    )*factor;
-        y(orderplustwo,3)=( DY(order,0,3)+m(1)*DY(order,1,3)+m(2)*DY(order,2,3)                    )*factor;
+        x(orderplustwo,3) = ( m(0)*DX(order,0,3)+m(1)*DX(order,1,3)+m(2)*DX(order,2,3)                   -m(4)*DX(order,3,4) )*factor;
+        y(orderplustwo,3) = ( m(0)*DY(order,0,3)+m(1)*DY(order,1,3)+m(2)*DY(order,2,3)                   -m(4)*DY(order,3,4) )*factor;
 	
-        x(orderplustwo,2)=( DX(order,0,2)+m(1)*DX(order,1,2)                   -m(3)*DX(order,2,3) )*factor;
-        y(orderplustwo,2)=( DY(order,0,2)+m(1)*DY(order,1,2)                   -m(3)*DY(order,2,3) )*factor;
+        x(orderplustwo,2) = ( m(0)*DX(order,0,2)+m(1)*DX(order,1,2)                   -m(3)*DX(order,2,3)-m(4)*DX(order,2,4) )*factor;
+        y(orderplustwo,2) = ( m(0)*DY(order,0,2)+m(1)*DY(order,1,2)                   -m(3)*DY(order,2,3)-m(4)*DY(order,2,4) )*factor;
         
-        x(orderplustwo,1)=( DX(order,0,1)                   -m(2)*DX(order,1,2)-m(3)*DX(order,1,3) )*factor;
-        y(orderplustwo,1)=( DY(order,0,1)                   -m(2)*DY(order,1,2)-m(3)*DY(order,1,3) )*factor;
+        x(orderplustwo,1) = ( m(0)*DX(order,0,1)                   -m(2)*DX(order,1,2)-m(3)*DX(order,1,3)-m(4)*DX(order,1,4) )*factor;
+        y(orderplustwo,1) = ( m(0)*DY(order,0,1)                   -m(2)*DY(order,1,2)-m(3)*DY(order,1,3)-m(4)*DY(order,1,4) )*factor;
         
-        x(orderplustwo,0)=-m(1)*x(orderplustwo,1)-m(2)*x(orderplustwo,2)-m(3)*x(orderplustwo,3);
-        y(orderplustwo,0)=-m(1)*y(orderplustwo,1)-m(2)*y(orderplustwo,2)-m(3)*y(orderplustwo,3);
+        x(orderplustwo,0) = (-m(1)*x(orderplustwo,1)-m(2)*x(orderplustwo,2)-m(3)*x(orderplustwo,3)-m(4)*x(orderplustwo,4))/m(0);
+        y(orderplustwo,0) = (-m(1)*y(orderplustwo,1)-m(2)*y(orderplustwo,2)-m(3)*y(orderplustwo,3)-m(4)*y(orderplustwo,4))/m(0);
 		
 //        x(orderplustwo,0)=0.;
 //        y(orderplustwo,0)=0.;
@@ -770,9 +791,10 @@ void TaylorMethod(int &n,
     
     TimeStepControl(n,N,x,y,thisIsTrue,infNorm,absoluteError,relativeError,timeStepControlMethod,delta_t);
 
-    if( (t+delta_t)/T_Pr>=numberOfPeriods ){
-        std::cout << "ALMOST DONE!" << " t/T=" << t/T_Pr << std::endl;
-        delta_t=(numberOfPeriods*T_Pr)-t+0.01;
+    if( (t+delta_t)/T_Pr>=maxperiods ){
+        //std::cout << "ALMOST DONE!" << " t/T=" << t/T_Pr << std::endl;
+        double mymacheps=std::numeric_limits<double>::epsilon();
+        delta_t=((maxperiods*T_Pr)-t)*(1.00000001);
 
     }
     
