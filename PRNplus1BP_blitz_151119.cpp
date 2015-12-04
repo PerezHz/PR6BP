@@ -12,8 +12,8 @@
 //#define FILE0
 #define OBLATE
 
-#define numberOfPeriods 40000
-#define numberOfInitialConditions 400
+#define numberOfPeriods 45000
+#define numberOfInitialConditions 200
 
 #ifdef PARALLEL
 #include "mpi.h"
@@ -253,8 +253,9 @@ int main () {
     File0.open(buffer);
 #endif
 	
-    int tictac = 15*8*1986*29*rank+time(NULL);
+    //int tictac = 15*8*1986*29*rank+time(NULL);
     //int tictac = 1449105711;
+    int tictac = 1449250974;
 	srand(tictac);
     std::cout << "SEED=" << tictac << std::endl;
     
@@ -384,7 +385,7 @@ int main () {
 		
         //for (unsigned d=0; periods<=maxperiods ; d++) {
 
-        //if (c==393) maxperiods=500;
+        //if (c==3195) maxperiods=300;
         //else maxperiods=1;
 
         for (unsigned d=0; t/T_Pr<=maxperiods+1 ; d++) {
@@ -529,12 +530,29 @@ int main () {
             TaylorMethod(n,N,x,y,m,X,Y,A,B,C,DX,DY,thisIsTrue,infNorm,absoluteError,relativeError,timeStepControlMethod,delta_t,xnew,ynew,t,maxperiods);
             if (A(1,mxi,mxj)*A_old(1,mxi,mxj)<0.){
                 //double dtans=delta_t-A(1,mxi,mxj)*delta_t/(A(1,mxi,mxj)-A_old(1,mxi,mxj));
-                double dtans=0.;
+                ////double dtans=0.;
                 //if (c==393 && d==magic) std::cout << "A=" << A(1,mxi,mxj) << ", A_old=" << A_old(1,mxi,mxj) << ", x=" << A_old(2,mxi,mxj) << ", c=" << c << ", d=" << d << std::endl;
+
+                double a_=0.;
+                double b_=delta_t;
+                double c_=0.5*delta_t;
+                double f_=oneJetDotHornerSum(n,c_,A_old,mxi,mxj);
+
+                for(int myl=0; fabs(0.5*(b_-a_))>newtonRaphsonTolerance && fabs(f_)>newtonRaphsonTolerance && myl<1;myl++){
+
+                    if      (f_*oneJetDotHornerSum(n,a_,A_old,mxi,mxj)>0.) a_=c_;
+                    else if (f_*oneJetDotHornerSum(n,b_,A_old,mxi,mxj)>0.) b_=c_;
+
+                    c_=0.5*(a_+b_);
+                    f_=oneJetDotHornerSum(n,c_,A_old,mxi,mxj);
+
+                }
+                double dtans=c_;
                 for(int myl=0;myl<4;myl++){
                     dtans=dtans-newtonQuotientHornerSum(n,dtans,A_old,mxi,mxj);
                 }
-                if(fabs(oneJetDotHornerSum(n,dtans,A_old,mxi,mxj))>newtonRaphsonTolerance)std::cout << "A1_old=" << oneJetDotHornerSum(n,dtans,A_old,mxi,mxj) << ", c=" << c << ", d=" << d << std::endl;
+
+                if(fabs(oneJetDotHornerSum(n,dtans,A_old,mxi,mxj))>newtonRaphsonTolerance)std::cout << "A1_old=" << oneJetDotHornerSum(n,dtans,A_old,mxi,mxj) << ", c=" << c << ", d=" << d << ", rank=" << rank << std::endl;
                 //if (c==393 && d==magic) std::cout << "t*/dt=" << dtans/delta_t << ", A0=" << oneJetHornerSum(n,dtans,A_old,mxi,mxj) << ", A1=" << oneJetDotHornerSum(n,dtans,A_old,mxi,mxj) << ", A2=" << oneJetDotDotHornerSum(n,dtans,A_old,mxi,mxj) << ", t/T_Pr=" << t/T_Pr << std::endl;
                 if (/*A_old(2,mxi,mxj)*/oneJetDotDotHornerSum(n,dtans,A_old,mxi,mxj)>0.){
                     rmin= sqrt(oneJetHornerSum(n,dtans,A_old,mxi,mxj));
@@ -543,12 +561,14 @@ int main () {
                     //std::cout << "rminCount=" << rminCount << std::endl;
                     if( isnan(rmin) || isinf(rmin) ){
 
-                        std::cout << "ISMIN rmin=" << rmin << ", c=" << c << ", d=" << d << std::endl;
+                        std::cout << "ISMIN rmin=" << rmin << ", c=" << c << ", d=" << d << ", rank=" << rank << std::endl;
                         std::cout << "t/T_Pr" << t/T_Pr << std::endl;
                         std::cout << "distPr_div_rHill=" << distPr/R_Hill_Pr << std::endl;
                         std::cout << "distPa_div_rHill=" << distPa/R_Hill_Pa << std::endl;
                         std::cout << "rmaxCount=" << rmaxCount << std::endl;
                         std::cout << "rminCount=" << rminCount << std::endl;
+                        std::cout << "rminMean=" << aMean*(1.-eMean) << std::endl;
+                        //rmin=aMean*(1.-eMean);
 
                     }
 
@@ -560,18 +580,20 @@ int main () {
                     //std::cout << "rmaxCount=" << rmaxCount << std::endl;
                     if( isnan(rmax) || isinf(rmax) ){
 
-                        std::cout << "ISMAX rmax=" << rmax << ", c=" << c << ", d=" << d << std::endl;
+                        std::cout << "ISMAX rmax=" << rmax << ", c=" << c << ", d=" << d << ", rank=" << rank << std::endl;
                         std::cout << "distPr_div_rHill=" << distPr/R_Hill_Pr << std::endl;
                         std::cout << "distPa_div_rHill=" << distPa/R_Hill_Pa << std::endl;
                         std::cout << "rmaxCount=" << rmaxCount << std::endl;
                         std::cout << "rminCount=" << rminCount << std::endl;
+                        std::cout << "rminMean=" << aMean*(1.+eMean) << std::endl;
+                        //rmax=aMean*(1.+eMean);
 
                     }
 
                 }
                 else std::cout << "WARNING: NR ill condition" << std::endl;
 
-                /*if(fabs((1.*rmaxCount)-(1.*rminCount))>2.)*/ //std::cout << rmaxCount << " " << rminCount << " " << fabs(1.*rmaxCount-1.*rminCount) << " d=" << d << std::endl;
+                /**/if(fabs((1.*rmaxCount)-(1.*rminCount))>1.)/**/ std::cout << rmaxCount << " " << rminCount << " " << fabs(1.*rmaxCount-1.*rminCount) << " d=" << d << std::endl;
 
                 if ( rmaxCount==rminCount ) {
 
