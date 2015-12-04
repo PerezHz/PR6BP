@@ -12,8 +12,8 @@
 //#define FILE0
 #define OBLATE
 
-#define numberOfPeriods 10000
-#define numberOfInitialConditions 1000
+#define numberOfPeriods 20000
+#define numberOfInitialConditions 200
 
 #ifdef PARALLEL
 #include "mpi.h"
@@ -253,7 +253,7 @@ int main () {
     File0.open(buffer);
 #endif
 	
-    int tictac = 15*8*1986*29*rank*time(NULL);
+    int tictac = 15*8*1986*29*rank+time(NULL);
     //int tictac = 1449105711;
 	srand(tictac);
     std::cout << "SEED=" << tictac << std::endl;
@@ -270,7 +270,7 @@ int main () {
 
     for (unsigned c=1; c<=P; c++) {
 
-        std::cout << "c=" << c << " ";
+        //std::cout << "c=" << c << " rank=" << rank << " ";
         
         blitz3Djet A_old (maxOrder,N+1,N+1);
         A_old=0.;
@@ -336,9 +336,6 @@ int main () {
 //        x(1,0)=0.;
 //        y(1,0)=0.;
 
-        newInitialConditions(x,y,m,index_rp,index_sa,a_RP,e_RP,theta_RP,w_RP);
-        //InitialConditions(x,y,m,index_rp,a_RP,e_RP,theta_RP,w_RP);
-
         E0 = Energy(N,x,y,m);
         L0 = AngularMomentum(N,x,y,m);
         if (c==1){
@@ -347,6 +344,11 @@ int main () {
             std::cout << "AngMom (blitz)=" << AngularMomentum(N,x,y,m) << std::endl;
 
         }
+
+	std::cout << "c=" << c << " rank=" << rank << " ";
+
+        newInitialConditions(x,y,m,index_rp,index_sa,a_RP,e_RP,theta_RP,w_RP);
+	//InitialConditions(x,y,m,index_rp,a_RP,e_RP,theta_RP,w_RP);
 
         distPr=0.;
         distPa=0.;
