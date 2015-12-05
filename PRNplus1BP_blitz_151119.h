@@ -97,10 +97,20 @@ void newInitialConditions(blitz2Djet &x, //x,px
         y(1,i)+=y(1,prind);
     }
 
-    if(i==index_rp) std::cout << "x0"<< i <<"=" << x(0,i) << " ";
-    //std::cout << "y0"<< i <<"=" << y(0,i) << std::endl;
-    //std::cout << "u0"<< i <<"=" << x(1,i) << std::endl;
-    //std::cout << "v0"<< i <<"=" << y(1,i) << std::endl;
+    if(i==index_rp){
+
+//        x(0,i)=22018.97874320764;
+//        y(0,i)=4451.287903277223;
+//        x(1,i)=-1.193883385786046;
+//        y(1,i)=-0.7110904320632346;
+
+        std::cout << "x0"<< i <<"=" << x(0,i) << " ";
+//        std::cout << "y0"<< i <<"=" << y(0,i) << " ";
+//        std::cout << "u0"<< i <<"=" << x(1,i) << " ";
+//        std::cout << "v0"<< i <<"=" << y(1,i) << " ";
+
+    }
+
 
 }
 
@@ -794,7 +804,7 @@ void TaylorMethod(int &n,
     if( (t+delta_t)/T_Pr>=maxperiods ){
         //std::cout << "ALMOST DONE!" << " t/T=" << t/T_Pr << std::endl;
         double mymacheps=std::numeric_limits<double>::epsilon();
-        delta_t=((maxperiods*T_Pr)-t)*(1.00000001);
+        delta_t=((maxperiods*T_Pr)-t)*(1.0000001);
 
     }
     
