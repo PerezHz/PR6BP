@@ -1,6 +1,6 @@
 //
 //  blitztest.cpp
-//  
+//
 //
 //  Created by Jorge Antonio Perez Hernandez on 5/13/14.
 //
@@ -107,19 +107,19 @@ int main () {
 #ifndef PARALLEL
 	int rank = 0; int numtasks = 1;
 #endif
-    
+
 #ifdef PARALLEL
 	int rank;
     int  numtasks, namelen, rc;
 	rc = MPI_Init(NULL,NULL);
 	char processor_name[MPI_MAX_PROCESSOR_NAME];
-    
+
 	//Checking succesful MPI initialization...
 	if (rc != MPI_SUCCESS) {
 		printf ("Error starting MPI program. Terminating.\n");
 		MPI_Abort(MPI_COMM_WORLD, rc);
 	}
-    
+
 	//Starting MPI...
 	MPI_Comm_size(MPI_COMM_WORLD,&numtasks);
 	MPI_Comm_rank(MPI_COMM_WORLD,&rank);
@@ -127,7 +127,7 @@ int main () {
 #endif
 
     int maxperiods=numberOfPeriods;
-    
+
     int snapshots1=ceil(1.*maxperiods/100.);
     int snapshots2=ceil(5.*maxperiods/100.);
     int snapshots3=ceil(1.*maxperiods/10.);
@@ -151,26 +151,26 @@ int main () {
         std::cout << "snap5=" << numberOfPeriods << std::endl;
 
 	};
-    
+
 #ifdef PARALLEL
     std::cout << "This is process #" << rank << " on " << processor_name << "." << std::endl;
 #endif
-    
+
     int P = numberOfInitialConditions;
     int N = numberOfParticles;
     int n = maxOrder;
-	
+
     double t;
 	double t_old;
     double delta_t;
-    
+
     double absoluteError = absoluteErrorDefinition;
     double relativeError = relativeErrorDefinition;
     double infNorm;
     bool thisIsTrue;
-    
+
     unsigned timeStepControlMethod=timeStepControlMethodDefinition;
-    
+
     //double yPr1;
     //double yPr2;
     double distPr;
@@ -178,101 +178,104 @@ int main () {
 	double r;
     double rmax;
     double rmin;
-    
+
     double aMean=0.;
     double eMean=0.;
-    
+
     double aM2=0.;
     double eM2=0.;
-    
+
     double aVariance=0.;
     double eVariance=0.;
-    
+
     unsigned rmaxCount=0;
     unsigned rminCount=0;
-    
+
     double aDelta;
     double eDelta;
-    
+
     double aNow;
     double eNow;
-    
+
     unsigned periods=0;
-    
+
     int pr=2;
     int pa=3;
 
     int mxi=rho_i;
     int mxj=rho_j;
-    
+
     int coll=0;//collisions integer
-    
+
     //double tolerance = regulaFalsiTolerance; //Convergence criterion tolerance
-    
+
 	double E0;
 	double L0;
-	
+
 	double energyNow;
 	double angMomNow;
-	
+
     char buffer[15];
-    
+
     std::ofstream File1;
     File1 << std::setprecision(16);
     sprintf(buffer,"P1_%.3u.dat",rank);
     File1.open(buffer);
-    
+
     std::ofstream File2;
     File2 << std::setprecision(16);
     sprintf(buffer,"P2_%.3u.dat",rank);
     File2.open(buffer);
-    
+
     std::ofstream File3;
     File3 << std::setprecision(16);
     sprintf(buffer,"P3_%.3u.dat",rank);
     File3.open(buffer);
-    
+
     std::ofstream File4;
     File4 << std::setprecision(16);
     sprintf(buffer,"P4_%.3u.dat",rank);
     File4.open(buffer);
-    
+
     std::ofstream File5;
     File5 << std::setprecision(16);
     sprintf(buffer,"P5_%.3u.dat",rank);
     File5.open(buffer);
-    
+
     std::ofstream File6;
     File6 << std::setprecision(16);
     sprintf(buffer,"P6_%.3u.dat",rank);
     File6.open(buffer);
-	
+
 #ifdef FILE0
     std::ofstream File0;
     File0 << std::setprecision(16);
     sprintf(buffer,"P0_%.3u.dat",rank);
     File0.open(buffer);
 #endif
-	
+
     int tictac = 15*8*1986*29*rank+time(NULL);
     //int tictac = 1476959857;
 	srand(tictac);
     std::cout << "SEED=" << tictac << std::endl;
-    
+
     double rd1;
     double rd2;
     double rd3;
     double rd4;
-    
+
     double a_RP;
     double e_RP;
     double theta_RP;
     double w_RP;
 
+    double my_a;
+    double my_e;
+
     for (unsigned c=1; c<=P; c++) {
 
         //std::cout << "c=" << c << " rank=" << rank << " ";
-        
+
         blitz3Djet A_old (maxOrder,N+1,N+1);
         A_old=0.;
         //std::cout << "A_old(1,mxi,mxj)=" << A_old(1,mxi,mxj) << std::endl;
@@ -280,6 +283,8 @@ int main () {
         blitz1Djet m(N+1);
         blitz2Djet x(maxOrder+1,N+1);
         blitz2Djet y(maxOrder+1,N+1);
+        blitz2Djet x_ini(2,N+1);
+        blitz2Djet y_ini(2,N+1);
         blitz3Djet X (maxOrder,N+1,N+1);
         blitz3Djet Y (maxOrder,N+1,N+1);
         blitz3Djet A (maxOrder,N+1,N+1); A=0.;
@@ -291,29 +296,31 @@ int main () {
         blitz3Djet EY(maxOrder,N+1,N+1);
 
         m=M_Su,M_Sa,M_Ti,M_Pr,M_Pa,0.;
-        
+
         t=0.;
         delta_t=timeStep;
-        
+
         infNorm=0.;
 
         rd1 = ( 1.*rand() )/( 1.0*RAND_MAX );
         rd2 = ( 1.*rand() )/( 1.0*RAND_MAX );
         rd3 = ( 1.*rand() )/( 1.0*RAND_MAX );
         rd4 = ( 1.*rand() )/( 1.0*RAND_MAX );
-        
+
 //        //Condiciones iniciales que generan singularidad en met de pos fals,
 //        //en variable m_...
 //        a_RP = 2.014977953797247;
 //        e_RP = 3.697961570554395e-05;
 //        theta_RP = 3.380896879419916;
 //        w_RP = 3.769077244345274;
-        
+
         a_RP = a_RP_min+(a_RP_MAX-a_RP_min)*rd1;
         e_RP = e_RP_min+(e_RP_MAX-e_RP_min)*rd2;
+        my_a=a_RP;
+        my_e=e_RP;
         theta_RP = 360.*rd3;
         w_RP = 360.*rd4;
-        
+
         newInitialConditions(x,y,m,index_sa,index_su,a_Sa,e_Sa,0.,0.);
         newInitialConditions(x,y,m,index_ti,index_sa,a_Ti,e_Ti,0.,0.);
         newInitialConditions(x,y,m,index_pr,index_sa,a_Pr,e_Pr,0.,0.);
@@ -326,6 +333,15 @@ int main () {
         y(0,0)=(-m(1)*y(0,1)-m(2)*y(0,2)-m(3)*y(0,3)-m(4)*y(0,4))/m(0);
         x(1,0)=(-m(1)*x(1,1)-m(2)*x(1,2)-m(3)*x(1,3)-m(4)*x(1,4))/m(0);
         y(1,0)=(-m(1)*y(1,1)-m(2)*y(1,2)-m(3)*y(1,3)-m(4)*y(1,4))/m(0);
+
+        for (int i=0;i<N+1;i++){
+
+            x_ini(0,i)=x(0,i);
+            y_ini(0,i)=y(0,i);
+            x_ini(1,i)=x(1,i);
+            y_ini(1,i)=y(1,i);
+
+        }
 
         //std::cout << "x00=" << x(0,0) << std::endl;
         //std::cout << "y00=" << y(0,0) << std::endl;
@@ -357,32 +373,32 @@ int main () {
         //yPr2=0.;
         rmax=0.;
         rmin=0.;
-        
+
         aMean=0.;
         eMean=0.;
-        
+
         aM2=0.;
         eM2=0.;
-        
+
         aVariance=0.;
         eVariance=0.;
-        
+
         rmaxCount=0;
         rminCount=0;
-        
+
         aDelta=0.;
         eDelta=0.;
-        
+
         aNow=0.;
         eNow=0.;
-        
+
         periods=0;
-        
+
         coll=0;
-		
+
 		std::vector <double> MEANa;
 		std::vector <double> MEANe;
-		
+
         //for (unsigned d=0; periods<=maxperiods ; d++) {
 
         //if (c==282) maxperiods=2000;
@@ -391,18 +407,18 @@ int main () {
         unsigned d;
 
         for (d=0; t/T_Pr<=maxperiods+1 ; d++) {
-            
+
             //std::cout << "alright0" << std::endl;
             blitz2Djet xnew(maxOrder+1,N+1);
             blitz2Djet ynew(maxOrder+1,N+1);
-            
+
             //std::cout << "alright01" << std::endl;
             xnew=x;
             ynew=y;
             //std::cout << "alright02" << std::endl;
-            
+
             if (periods==maxperiods && coll==0) {
-                
+
 				//std::cout << "MEANa.size()=" << MEANa.size() << ", periods=" << periods << ", rminCount=" << rminCount << std::endl;
 				double ss_a=0;
 				double ss_e=0;
@@ -420,60 +436,66 @@ int main () {
 				}
 				vr_a=sqrt(vr_a/MEANa.size());
 				vr_e=sqrt(vr_e/MEANe.size());
-				
+
                 File5 <<//
-                        a_RP << " " <<//
-                        e_RP << " " <<//
-                        theta_RP << " " <<//
-                        w_RP << " " <<//
-                        ss_a << " " <<//
-                        ss_e << " " <<//
-                        vr_a << " " <<//
-                        vr_e << " " <<//
-                        t/T_Pr     << " " <<//
-                        xnew(0,0) << " " <<//
-                        ynew(0,0) << " " <<//
-                        xnew(1,0) << " " <<//
-                        ynew(1,0) << " " <<//
-                        xnew(0,1) << " " <<//
-                        ynew(0,1) << " " <<//
-                        xnew(1,1) << " " <<//
-                        ynew(1,1) << " " <<//
-                        xnew(0,2) << " " <<//
-                        ynew(0,2) << " " <<//
-                        xnew(1,2) << " " <<//
-                        ynew(1,2) << " " <<//
-                        xnew(0,3) << " " <<//
-                        ynew(0,3) << " " <<//
-                        xnew(1,3) << " " <<//
-                        ynew(1,3) << " " <<//
-                        xnew(0,4) << " " <<//
-                        ynew(0,4) << " " <<//
-                        xnew(1,4) << " " <<//
-                        ynew(1,4) << " " <<//
-                        xnew(0,5) << " " <<//
-                        ynew(0,5) << " " <<//
-                        xnew(1,5) << " " <<//
-                        ynew(1,5) << " " <<//
-                        aNow << " " <<//
-                        eNow << " " <<//
-                        (Energy(N,ynew,xnew,m)-E0)/E0 <<//
+                        a_RP << " " <<//1
+                        e_RP << " " <<//2
+                        theta_RP << " " <<//3
+                        w_RP << " " <<//4
+                        ss_a << " " <<//5
+                        ss_e << " " <<//6
+                        vr_a << " " <<//7
+                        vr_e << " " <<//8
+                        t/T_Pr     << " " <<//9
+                        xnew(0,0) << " " <<//10
+                        ynew(0,0) << " " <<//11
+                        xnew(1,0) << " " <<//12
+                        ynew(1,0) << " " <<//13
+                        xnew(0,1) << " " <<//14
+                        ynew(0,1) << " " <<//15
+                        xnew(1,1) << " " <<//16
+                        ynew(1,1) << " " <<//17
+                        xnew(0,2) << " " <<//18
+                        ynew(0,2) << " " <<//19
+                        xnew(1,2) << " " <<//20
+                        ynew(1,2) << " " <<//21
+                        xnew(0,3) << " " <<//22
+                        ynew(0,3) << " " <<//23
+                        xnew(1,3) << " " <<//24
+                        ynew(1,3) << " " <<//25
+                        xnew(0,4) << " " <<//26
+                        ynew(0,4) << " " <<//27
+                        xnew(1,4) << " " <<//28
+                        ynew(1,4) << " " <<//29
+                        xnew(0,5) << " " <<//30
+                        ynew(0,5) << " " <<//31
+                        xnew(1,5) << " " <<//32
+                        ynew(1,5) << " " <<//33
+                        my_a << " " <<//34
+                        my_e << " " <<//35
+                        aNow << " " <<//36
+                        eNow << " " <<//37
+                        x_ini(0,index_rp) << " " <<//38
+                        y_ini(0,index_rp) << " " <<//39
+                        x_ini(1,index_rp) << " " <<//40
+                        y_ini(1,index_rp) << " " <<//41
+                        (Energy(N,ynew,xnew,m)-E0)/E0 <<//42
                         std::endl;
-                
+
                 break;
-                
+
                 //std::cout << "periods=" << periods << std::endl;
-                
+
             };//end, File5
-            
+
             //yPr1=ynew(0,2);
-            
+
             distPr=1.;
             distPa=1.;
             r=radialDistance(xnew,ynew,index_rp,index_sa);//0.5*(a_Pr+a_Pa);
-            
+
             //std::cout << "alright" << std::endl;
-			
+
 //			double f_calc=myArcTan(x_rel,y_rel);
 //			double v2_rel=u_rel*u_rel+v_rel*v_rel;
 //			double r_rel=sqrt(x_rel*x_rel+y_rel*y_rel);
@@ -488,10 +510,10 @@ int main () {
 
 #ifdef FILE0
             if(c==282){
-				
+
 				energyNow=Energy(N,x,y,m);
 				angMomNow=AngularMomentum(N,x,y,m);
-				
+
                 File0 << t/T_Pr
                       << " " << aNow
                       << " " << eNow
@@ -522,10 +544,10 @@ int main () {
                       << " " << A(1,mxi,mxj)
                       << " " << A(2,mxi,mxj)
                       << std::endl;
-				
+
             }
 #endif
-			
+
 			t_old=t;
             //int magic=1202;
             //if (c==393 && d==magic) std::cout << "***A_old=" << A_old(1,mxi,mxj) << std::endl;
@@ -618,7 +640,7 @@ int main () {
                     if (rmax==rmin) eNow=0.;
                     else eNow=(rmax-rmin)/(2.*aNow);
 
-                    if(rmaxCount==1){
+                    if(rmaxCount==1 && rminCount==1 && periods<10 ){
 
                         a_RP=aNow;
                         e_RP=eNow;
@@ -664,23 +686,23 @@ int main () {
 
 
             };//end, if A(1,mxi,mxj)*A_old(1,mxi,mxj)<0.
-            
+
             //std::cout << "alright2" << std::endl;
-            
+
             //yPr2=ynew(0,2);
-            
+
             //std::cout << "alright3" << std::endl;
-            
+
             //"Paint" particle if it enters Prometheus/Pandora Hill Sphere, or escapes the region between them:
             if ( distPr <= R_Hill_Pr || distPa <= R_Hill_Pa  || r>a_Pa || r<a_Pr || isnan(xnew(0,index_rp)) || isinf(xnew(0,index_rp))) {
-                
+
                 //std::cout << "         *rank = " << rank << " : Pro Coll!" << std::endl;
                 //if (distPr <= R_Hill_Pr)        std::cout << "distPr/R_Hill_Pr="  << distPr/R_Hill_Pr  << std::endl;
                 //else if (distPa <= R_Hill_Pa)   std::cout << "distPa/R_Hill_Pa="  << distPa/R_Hill_Pa << std::endl;
                 //else                            std::cout << "*OUT OF BOUNDS* r=" << r << ", c=" << c << ", d=" << d << std::endl;
-				
+
                 coll=1;
-                
+
                 File6 <<//
                         a_RP << " " <<//
                         e_RP << " " <<//
@@ -715,21 +737,27 @@ int main () {
                         ynew(0,5) << " " <<//
                         xnew(1,5) << " " <<//
                         ynew(1,5) << " " <<//
+                        my_a << " " <<//
+                        my_e << " " <<//
                         aNow << " " <<//
                         eNow << " " <<//
+                        x_ini(0,index_rp) << " " <<//38
+                        y_ini(0,index_rp) << " " <<//39
+                        x_ini(1,index_rp) << " " <<//40
+                        y_ini(1,index_rp) << " " <<//41
                         (Energy(N,ynew,xnew,m)-E0)/E0 <<//
                         std::endl;
 
 				break;
-                
+
 			};
-            
+
             //if (yPr1<0 && yPr2>0) {
             if ( floor(t_old/T_Pr)<floor(t/T_Pr) ) {
                 periods++;
-                
+
                 if (periods==snapshots1 && coll==0) {
-					
+
 					//std::cout << "MEANa.size()=" << MEANa.size() << ", periods=" << periods << ", rminCount=" << rminCount << std::endl;
 					double ss_a=0;
 					double ss_e=0;
@@ -747,7 +775,7 @@ int main () {
 					}
 					vr_a=sqrt(vr_a/MEANa.size());
 					vr_e=sqrt(vr_e/MEANe.size());
-					
+
                     File1 <<//
                             a_RP << " " <<//
                             e_RP << " " <<//
@@ -782,14 +810,20 @@ int main () {
                             ynew(0,5) << " " <<//
                             xnew(1,5) << " " <<//
                             ynew(1,5) << " " <<//
+                            my_a << " " <<//
+                            my_e << " " <<//
                             aNow << " " <<//
                             eNow << " " <<//
+                            x_ini(0,index_rp) << " " <<//38
+                            y_ini(0,index_rp) << " " <<//39
+                            x_ini(1,index_rp) << " " <<//40
+                            y_ini(1,index_rp) << " " <<//41
                             (Energy(N,ynew,xnew,m)-E0)/E0 <<//
                             std::endl;
-                    
+
                 }//end, File1
                 else if (periods==snapshots2 && coll==0) {
-                    
+
 					//std::cout << "MEANa.size()=" << MEANa.size() << ", periods=" << periods << ", rminCount=" << rminCount << std::endl;
 					double ss_a=0;
 					double ss_e=0;
@@ -807,7 +841,7 @@ int main () {
 					}
 					vr_a=sqrt(vr_a/MEANa.size());
 					vr_e=sqrt(vr_e/MEANe.size());
-					
+
                     File2 <<//
                             a_RP << " " <<//
                             e_RP << " " <<//
@@ -842,16 +876,22 @@ int main () {
                             ynew(0,5) << " " <<//
                             xnew(1,5) << " " <<//
                             ynew(1,5) << " " <<//
+                            my_a << " " <<//
+                            my_e << " " <<//
                             aNow << " " <<//
                             eNow << " " <<//
+                            x_ini(0,index_rp) << " " <<//38
+                            y_ini(0,index_rp) << " " <<//39
+                            x_ini(1,index_rp) << " " <<//40
+                            y_ini(1,index_rp) << " " <<//41
                             (Energy(N,ynew,xnew,m)-E0)/E0 <<//
                             std::endl;
-                    
+
                     //std::cout << "periods=" << periods << std::endl;
-                    
+
                 }//end, File2
                 else if (periods==snapshots3 && coll==0) {
-                    
+
 					//std::cout << "MEANa.size()=" << MEANa.size() << ", periods=" << periods << ", rminCount=" << rminCount << std::endl;
 					double ss_a=0;
 					double ss_e=0;
@@ -869,7 +909,7 @@ int main () {
 					}
 					vr_a=sqrt(vr_a/MEANa.size());
 					vr_e=sqrt(vr_e/MEANe.size());
-					
+
                     File3 <<//
                             a_RP << " " <<//
                             e_RP << " " <<//
@@ -904,16 +944,22 @@ int main () {
                             ynew(0,5) << " " <<//
                             xnew(1,5) << " " <<//
                             ynew(1,5) << " " <<//
+                            my_a << " " <<//
+                            my_e << " " <<//
                             aNow << " " <<//
                             eNow << " " <<//
+                            x_ini(0,index_rp) << " " <<//38
+                            y_ini(0,index_rp) << " " <<//39
+                            x_ini(1,index_rp) << " " <<//40
+                            y_ini(1,index_rp) << " " <<//41
                             (Energy(N,ynew,xnew,m)-E0)/E0 <<//
                             std::endl;
-                    
+
                     //std::cout << "periods=" << periods << std::endl;
-                    
+
                 }//end, File3
                 else if (periods==snapshots4 && coll==0) {
-                    
+
 					//std::cout << "MEANa.size()=" << MEANa.size() << ", periods=" << periods << ", rminCount=" << rminCount << std::endl;
 					double ss_a=0;
 					double ss_e=0;
@@ -931,7 +977,7 @@ int main () {
 					}
 					vr_a=sqrt(vr_a/MEANa.size());
 					vr_e=sqrt(vr_e/MEANe.size());
-					
+
                     File4 <<//
                             a_RP << " " <<//
                             e_RP << " " <<//
@@ -966,28 +1012,34 @@ int main () {
                             ynew(0,5) << " " <<//
                             xnew(1,5) << " " <<//
                             ynew(1,5) << " " <<//
+                            my_a << " " <<//
+                            my_e << " " <<//
                             aNow << " " <<//
                             eNow << " " <<//
+                            x_ini(0,index_rp) << " " <<//38
+                            y_ini(0,index_rp) << " " <<//39
+                            x_ini(1,index_rp) << " " <<//40
+                            y_ini(1,index_rp) << " " <<//41
                             (Energy(N,ynew,xnew,m)-E0)/E0 <<//
                             std::endl;
-                    
+
                     //std::cout << "periods=" << periods << std::endl;
-                    
+
                 };//end, File4
-                
+
                 //std::cout << "periods=" << periods << std::endl;
-                
+
             }; //end, if floor(t_old/T_Pr)<floor(t/T_Pr)
-            
+
             //std::cout << "alright4" << std::endl;
             x=xnew;
             y=ynew;
             //std::cout << "alright5" << std::endl;
-            
+
             //
 
         };//end, for d
-        
+
         std::cout << "t/T_Pr=" << t/T_Pr << ", d=" << d << std::endl;
         //if(c==numberOfInitialConditions)std::cout << "c=" << c << std::endl;
 
@@ -996,30 +1048,25 @@ int main () {
 #endif
 
     };//end, for c
-    
+
     std::cout << "Done." << std::endl;
-    
+
 #ifdef PARALLEL
     std::cout << " Process #" << rank << " on " << processor_name << "." << std::endl;
 	MPI_Finalize();
 #endif
-    
+
 #ifdef FILE0
 	File0.close();
 #endif
-	
+
     File1.close();
     File2.close();
     File3.close();
     File4.close();
     File5.close();
     File6.close();
-	
+
     return 0;
-    
+
 }
-
-
-
-
-
